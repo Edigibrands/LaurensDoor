@@ -11,7 +11,7 @@
  * - Configure a real email provider/mail transport before production setup.
  */
 
-const MAIL_FROM = 'no-reply@yourdomain.com';
+const MAIL_FROM = 'onboarding@resend.dev';
 const APP_NAME = 'Costing Builder';
 const DEV_SHOW_OTP = false; // Must remain false in production.
 
@@ -21,6 +21,54 @@ header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+
+function sendResendEmail($to, $subject, $text) {
+    $key = getenv('RESEND_API_KEY');
+
+    if (!$key) {
+        error_log('RESEND_API_KEY is missing');
+        return false;
+    }
+
+    $payload = json_encode([
+        'from' => MAIL_FROM,
+        'to' => [$to],
+        'subject' => $subject,
+        'text' => $text
+    ]);
+
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'header' =>
+                "Authorization: Bearer {$key}\r\n" .
+                "Content-Type: application/json\r\n",
+            'content' => $payload,
+            'timeout' => 15,
+            'ignore_errors' => true
+        ]
+    ]);
+
+    $response = @file_get_contents(
+        'https://api.resend.com/emails',
+        false,
+        $context
+    );
+
+    $status = 0;
+    foreach ($http_response_header ?? [] as $header) {
+        if (preg_match('/^HTTP\/\S+\s+(\d+)/', $header, $m)) {
+            $status = (int)$m[1];
+        }
+    }
+
+    if ($response === false || $status < 200 || $status >= 300) {
+        error_log('Resend email failed. HTTP status: ' . $status);
+        return false;
+    }
+
+    return true;
+}
 
 function out($data, $status = 200) {
     http_response_code($status);
@@ -366,12 +414,11 @@ switch ($a) {
             ]
         );
 
-        $sent = @mail(
-            $email,
-            APP_NAME . ' verification code',
-            "Your verification code is {$otp}. It expires in 10 minutes.\n",
-            'From: ' . MAIL_FROM . "\r\nContent-Type: text/plain; charset=utf-8"
-        );
+       $sent = sendResendEmail(
+    $email,
+    APP_NAME . ' verification code',
+    "Your verification code is {$otp}. It expires in 10 minutes."
+);
 
         if (!$sent && !DEV_SHOW_OTP) {
             err('Could not send the email. Configure a supported email provider before setup.', 500);
