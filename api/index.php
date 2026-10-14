@@ -1,3 +1,15 @@
+<?php
+// Security headers for the existing single-file UI. Inline scripts remain enabled for compatibility.
+error_reporting(0);
+ini_set('display_errors', '0');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'");
+if (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') header('Strict-Transport-Security: max-age=15552000');
+?>
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Universal AI Costing Builder</title>
 <style>
 :root{--bg:#f6f7f9;--pn:#fff;--tx:#1c2430;--mu:#66707e;--ln:#dde1e7;--ac:#1f5f8b;--ac2:#e8f0f6;--wa:#b45309;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -227,9 +239,9 @@ function costView(type){
  if(!S[type]&&ts[0])startCost(type,ts[0].id);
  const s=S[type];if(!s)return'<p>No active templates. Add one in Master Data.</p>';
  const r=calc(s),hasPrice=db.materials.some(m=>m.price>0),sp=+s.sell||0,pr=sp-r.unit;
- const f=(k,lab,t='number')=>`<div><label>${lab}</label><input type="${t}" value="${esc(s[k]??'')}" onchange="setF('${type}','${k}',this.value)"></div>`;
+ const f=(k,lab,t='number')=>`<div><label>${lab}</label><input type="${t}" value="${esc(s[k]??'')}" ${k==='costingName'?'placeholder="e.g. Main Door Shutter - Client Name"':''} onchange="setF('${type}','${k}',this.value)"></div>`;
  const sel=(label,value,options,key)=>`<div><label>${label}</label><select onchange="setCostSpec('${type}','${key}',this.value)"><option value=""${value===''?' selected':''}>None</option>${options.map(v=>`<option value="${esc(v)}"${v===value?' selected':''}>${esc(v)}</option>`).join('')}</select></div>`;
- const templateSel=`<div style="grid-column:1/-1"><label>${type==='shutter'?'Shutter':'Frame'} Master Template</label><select onchange="selectMasterTemplate('${type}',this.value)"><option value="">None</option>${ts.map(t=>`<option value="${esc(t.id)}"${t.id===s.tid?' selected':''}>${esc(templateLabel(t))}</option>`).join('')}</select><div class="mu" style="margin-top:4px">All active ${type} templates from Master Data are available here. Add/edit templates in Master Data and they appear automatically.</div></div>`;
+ const templateSel=`<div style="grid-column:1/-1"><label>${type==='shutter'?'Shutter':'Frame'} Master Template</label><select onchange="selectMasterTemplate('${type}',this.value)"><option value="">None</option>${ts.map(t=>`<option value="${esc(t.id)}"${t.id===s.tid?' selected':''}>${esc(templateLabel(t))}</option>`).join('')}</select><div class="mu" style="margin-top:4px">Selecting a template loads its BOM and recalculates prices immediately. Template price overrides are managed in Master Data; blank overrides use current material master prices.</div></div>`;
  let spec='';
  if(type==='frame'){
    const ft=[...(db.fieldOptions?.frameType||['Post Forming','Square Frame','Standard Frame'])];
@@ -238,7 +250,7 @@ function costView(type){
    const ths=[...(db.fieldOptions?.frameThickness||['25+18','18+12','As per existing'])];
    const currentSub=s.subCategory!==undefined?s.subCategory:(subs[0]||'');
    const currentTh=s.t!==undefined&&s.t!==''?s.t:(s.thickness!==undefined?s.thickness:(ths[0]||''));
-   spec=`<div class="g spec-grid">${f('customer','Customer Name','text')}${templateSel}${sel('Type of Frame',currentFT,ft,'frameType')}${sel('Sub-category',currentSub,subs,'subCategory')}${sel('Thickness',currentTh,ths,'thickness')}<div><label>Size (W × H mm)</label><div class="row" style="margin:0"><input type="number" style="min-width:0" value="${esc(s.w)}" placeholder="Width" onchange="setF('${type}','w',this.value)"><span>×</span><input type="number" style="min-width:0" value="${esc(s.h)}" placeholder="Height" onchange="setF('${type}','h',this.value)"></div></div>${f('qty','Quantity')}<div><label>Area / Unit (Sq. Ft.)</label><input value="${r.sq.toFixed(2)}" readonly></div><div><label>Total Area (Sq. Ft.)</label><input value="${(r.sq*(+s.qty||0)).toFixed(2)}" readonly></div></div>`;
+   spec=`<div class="g spec-grid">${f('customer','Customer Name','text')}${f('costingName','Costing Name','text')}${templateSel}${sel('Type of Frame',currentFT,ft,'frameType')}${sel('Sub-category',currentSub,subs,'subCategory')}${sel('Thickness',currentTh,ths,'thickness')}<div><label>Size (W × H mm)</label><div class="row" style="margin:0"><input type="number" style="min-width:0" value="${esc(s.w)}" placeholder="Width" onchange="setF('${type}','w',this.value)"><span>×</span><input type="number" style="min-width:0" value="${esc(s.h)}" placeholder="Height" onchange="setF('${type}','h',this.value)"></div></div>${f('qty','Quantity')}<div><label>Area / Unit (Sq. Ft.)</label><input value="${r.sq.toFixed(2)}" readonly></div><div><label>Total Area (Sq. Ft.)</label><input value="${(r.sq*(+s.qty||0)).toFixed(2)}" readonly></div></div>`;
  }else{
    const types=[...(db.fieldOptions?.shutterType||['Post Forming','Square','Edge Banding'])];
    const sides=[...(db.fieldOptions?.shutterSide||['Both Side','Single Side'])];
@@ -246,7 +258,7 @@ function costView(type){
    const currentType=s.shutterType!==undefined?s.shutterType:types[0];
    const currentSide=s.side!==undefined?s.side:(sides[0]||'');
    const currentFinish=s.finishOption!==undefined?s.finishOption:(finishes[0]||'');
-   spec=`<div class="g spec-grid">${f('customer','Customer Name','text')}${templateSel}${sel('Type',currentType,types,'shutterType')}${sel('Side',currentSide,sides,'side')}${sel('Finish / Sub-option',currentFinish,finishes,'finishOption')}<div><label>Size (W × H mm)</label><div class="row" style="margin:0"><input type="number" style="min-width:0" value="${esc(s.w)}" placeholder="Width" onchange="setF('${type}','w',this.value)"><span>×</span><input type="number" style="min-width:0" value="${esc(s.h)}" placeholder="Height" onchange="setF('${type}','h',this.value)"></div></div>${f('t','Thickness (mm)')}${f('qty','Quantity')}<div><label>Area / Unit (Sq. Ft.)</label><input value="${r.sq.toFixed(2)}" readonly></div><div><label>Total Area (Sq. Ft.)</label><input value="${(r.sq*(+s.qty||0)).toFixed(2)}" readonly></div></div>`;
+   spec=`<div class="g spec-grid">${f('customer','Customer Name','text')}${f('costingName','Costing Name','text')}${templateSel}${sel('Type',currentType,types,'shutterType')}${sel('Side',currentSide,sides,'side')}${sel('Finish / Sub-option',currentFinish,finishes,'finishOption')}<div><label>Size (W × H mm)</label><div class="row" style="margin:0"><input type="number" style="min-width:0" value="${esc(s.w)}" placeholder="Width" onchange="setF('${type}','w',this.value)"><span>×</span><input type="number" style="min-width:0" value="${esc(s.h)}" placeholder="Height" onchange="setF('${type}','h',this.value)"></div></div>${f('t','Thickness (mm)')}${f('qty','Quantity')}<div><label>Area / Unit (Sq. Ft.)</label><input value="${r.sq.toFixed(2)}" readonly></div><div><label>Total Area (Sq. Ft.)</label><input value="${(r.sq*(+s.qty||0)).toFixed(2)}" readonly></div></div>`;
  }
  return`<h2>${type==='shutter'?'Shutter':'Frame'} Costing${s.rid?' · '+s.rid:''}</h2>
  <div class="steps noprint">Select Master Template → ${type==='frame'?'Type of Frame → Sub-category → Thickness → Size':'Type → Side → Finish / Sub-option → Size'} → Enter quantity → Verify BOM → Calculate</div>
@@ -326,14 +338,15 @@ function moveL(t,i,dir){const a=getLines(t),j=i+dir;if(j<0||j>=a.length)return;c
 function unitMethod(m){return{'sq ft':'area',rft:'rft',kg:'kg',unit:'fixed'}[m.unit]||'qty'}
 function saveCost(type,q){
  const s=S[type];
+ if(!String(s.costingName||'').trim())return toast('Enter a Costing Name before saving');
  const r=calc(s);
  const t=db.templates.find(x=>x.id==s.tid),id=s.rid||'C-'+String(db.seq++).padStart(4,'0');
- const rec={id,date:today(),customer:s.customer,terms:s.terms,type,tid:s.tid,tname:String(s.costingName|| (t?t.name:'')).trim() || (t?t.name:''),costingName:String(s.costingName||'').trim(),qty:s.qty,method:s.method,user:cu?cu.name:'',userId:cu?.id||null,w:s.w,h:s.h,t:s.t,sqFt:r.sq,totalSqFt:r.sq*(+s.qty||0),sell:s.sell,
+ const rec={id,date:today(),customer:s.customer,terms:s.terms,type,tid:s.tid,tname:String(s.costingName|| (t?t.name:'')).trim() || (t?t.name:''),costingName:String(s.costingName||'').trim(),templateName:t?t.name:'',qty:s.qty,method:s.method,user:cu?cu.name:'',userId:cu?.id||null,w:s.w,h:s.h,t:s.t,sqFt:r.sq,totalSqFt:r.sq*(+s.qty||0),sell:s.sell,
   lines:r.rows.map(x=>({mid:x.l.mid,name:x.l.name||x.m.name,cat:x.l.cat||x.m.cat,unit:x.l.unit||x.m.unit,method:x.l.method,qty:x.l.qty,size:x.l.size,w:x.l.w,h:x.l.h,price:x.p,wastage:x.w,masterPrice:x.l.masterPrice||null,description:x.l.description||''})),frameType:s.frameType||'',subCategory:s.subCategory||'',side:s.side||'',shutterType:s.shutterType||'',finishOption:s.finishOption||'',mat:r.by.Material,hw:r.by.Hardware,lab:r.by.Labour,oth:r.unit-r.by.Material-r.by.Hardware-r.by.Labour,per:r.unit,total:r.total};
  const i=db.history.findIndex(h=>h.id==id);i>=0?db.history[i]=rec:db.history.unshift(rec);s.rid=id;save();render();if(!q)toast('Saved '+id)}
 function setMaster(type){const s=S[type],t=db.templates.find(x=>x.id==s.tid);if(!t)return;
  ask('Overwrite the BOM of "'+t.name+'" with this costing?',()=>{t.bom=s.lines.map(tl);log('Template BOM updated: '+t.name);save();toast('Master template updated')})}
-const tl=l=>({mid:l.mid,method:l.method,qty:l.qty,size:l.size,w:l.w,h:l.h});
+const tl=l=>({mid:l.mid,method:l.method,qty:l.qty,size:l.size,w:l.w,h:l.h,price:l.price==null||l.price===''?null:+l.price,wastage:l.wastage==null||l.wastage===''?null:+l.wastage,masterPrice:l.masterPrice==null?null:+l.masterPrice});
 function newFromCost(type){const s=S[type],n=$('#nt').value.trim();if(!n)return toast('Enter a template name');
  db.templates.push({id:'t'+db.tid++,type,name:n,active:true,bom:s.lines.map(tl)});log('Template created: '+n);save();toast('Template saved');render()}
 
@@ -474,11 +487,18 @@ function dashView(){
 }
 
 function histView(){
- const all=(db.history||[]).filter(x=>x.type!=='door'),q=(document.getElementById('histSearch')?.value||window._histSearch||'').toLowerCase();
- const filtered=all.filter(x=>[x.id,x.date,x.customer,x.tname,x.method].join(' ').toLowerCase().includes(q));
+ const all=(db.history||[]).filter(x=>x.type!=='door');
+ const q=(document.getElementById('histSearch')?.value||window._histSearch||'').toLowerCase();
+ const typeFilter=window._histType||'all';
+ const filtered=all.filter(x=>{
+   const matchesType=typeFilter==='all'||x.type===typeFilter;
+   const searchable=[x.id,x.date,x.customer,x.tname,x.costingName,x.templateName,x.method,x.type].join(' ').toLowerCase();
+   return matchesType&&searchable.includes(q);
+ });
  const per=20,totalPages=Math.max(1,Math.ceil(filtered.length/per));histPg=Math.min(histPg,totalPages);const start=(histPg-1)*per,rows=filtered.slice(start,start+per);
- return `<h2>Costing History</h2>${all.length?`<div class="row"><input id="histSearch" placeholder="Search ID, client, costing..." value="${esc(window._histSearch||'')}" oninput="window._histSearch=this.value;histPg=1;render()" style="max-width:280px"><input id="masterClientName" placeholder="Client name for Master Costing" style="max-width:260px"><button class="pri" onclick="masterCostingPDF()">Generate Master Costing Sheet PDF</button><button onclick="masterCostingPreview()">Preview</button>${pdfSel()}<button onclick="exportCSV()">Export CSV</button></div><p class="mu">Showing ${filtered.length?start+1:0}-${Math.min(start+per,filtered.length)} of ${filtered.length} costings.</p>`:''}${all.length?`<div class="tw"><table><tr><th><input type="checkbox" onchange="toggleAllCostings(this.checked)"></th><th>ID</th><th>Date</th><th>Customer</th><th>Costing</th><th>Size</th><th>Qty</th><th class="r">Sq. Ft./Unit</th><th class="r">Total Sq. Ft.</th><th class="r">Total Cost</th><th></th></tr>
- ${rows.map(x=>`<tr><td><input class="mcsel" type="checkbox" value="${esc(x.id)}"></td><td>${x.id}</td><td>${x.date}</td><td>${esc(x.customer)}</td><td>${esc(x.tname)}</td><td>${esc((x.w||0)+' × '+(x.h||0)+' MM')}</td><td>${x.qty}</td><td class="r">${(+x.sqFt||0).toFixed(2)}</td><td class="r">${(+x.totalSqFt||0).toFixed(2)}</td><td class="r">${fmt(x.total)}</td><td style="white-space:nowrap"><button class="x" onclick="openRec('${x.id}')">Edit</button> <button class="x" onclick="openRec('${x.id}',1)">Copy</button> <button class="x" onclick="pdfRec('${x.id}',1)">Preview</button> <button class="x" onclick="pdfRec('${x.id}')">PDF</button> ${can('del')?`<button class="x" onclick="delRec('${x.id}')">✕</button>`:''}</td></tr>`).join('')}</table></div><div class="row"><button ${histPg<=1?'disabled':''} onclick="histPg--;render()">← Previous</button><span class="mu">Page ${histPg} / ${totalPages}</span><button ${histPg>=totalPages?'disabled':''} onclick="histPg++;render()">Next →</button></div>`:'<p class="mu">No saved costings yet. Calculate one and choose Save costing.</p>'}`
+ const typeLabel=x=>x.type==='shutter'?'Shutter':x.type==='frame'?'Frame':String(x.type||'Costing');
+ return `<h2>Costing History</h2><div class="row"><input id="histSearch" placeholder="Search ID, name, customer..." value="${esc(window._histSearch||'')}" oninput="window._histSearch=this.value;histPg=1;render()" style="max-width:280px"><label style="display:flex;align-items:center;gap:8px;margin:0">Costing Type <select id="histTypeFilter" onchange="window._histType=this.value;histPg=1;render()"><option value="all"${typeFilter==='all'?' selected':''}>All Costings</option><option value="shutter"${typeFilter==='shutter'?' selected':''}>Shutter</option><option value="frame"${typeFilter==='frame'?' selected':''}>Frame</option></select></label><input id="masterClientName" placeholder="Client name for Master Costing" style="max-width:260px"><button class="pri" onclick="masterCostingPDF()">Generate Master Costing Sheet PDF</button><button onclick="masterCostingPreview()">Preview</button>${pdfSel()}<button onclick="exportCSV()">Export CSV</button></div><p class="mu">Showing ${filtered.length?start+1:0}-${Math.min(start+per,filtered.length)} of ${filtered.length} ${typeFilter==='all'?'costings':typeLabel({type:typeFilter}).toLowerCase()+' costings'}.</p>${filtered.length?`<div class="tw"><table><tr><th><input type="checkbox" onchange="toggleAllCostings(this.checked)"></th><th>ID</th><th>Type</th><th>Date</th><th>Customer</th><th>Costing Name / Template</th><th>Size</th><th>Qty</th><th class="r">Sq. Ft./Unit</th><th class="r">Total Sq. Ft.</th><th class="r">Total Cost</th><th></th></tr>
+ ${rows.map(x=>`<tr><td><input class="mcsel" type="checkbox" value="${esc(x.id)}"></td><td>${esc(x.id)}</td><td><span class="badge">${esc(typeLabel(x))}</span></td><td>${esc(x.date||'')}</td><td>${esc(x.customer||'-')}</td><td><b>${esc(x.tname||x.costingName||'-')}</b>${x.templateName?`<div class="mu">Template: ${esc(x.templateName)}</div>`:''}</td><td>${esc((x.w||0)+' × '+(x.h||0)+' MM')}</td><td>${esc(x.qty||1)}</td><td class="r">${(+x.sqFt||0).toFixed(2)}</td><td class="r">${(+x.totalSqFt||0).toFixed(2)}</td><td class="r">${fmt(x.total)}</td><td style="white-space:nowrap"><button class="x" onclick="openRec('${esc(x.id)}')">Edit</button> <button class="x" onclick="openRec('${esc(x.id)}',1)">Copy</button> <button class="x" onclick="pdfRec('${esc(x.id)}',1)">Preview</button> <button class="x" onclick="pdfRec('${esc(x.id)}')">PDF</button> ${can('del')?`<button class="x" onclick="delRec('${esc(x.id)}')">✕</button>`:''}</td></tr>`).join('')}</table></div><div class="row"><button ${histPg<=1?'disabled':''} onclick="histPg--;render()">← Previous</button><span class="mu">Page ${histPg} / ${totalPages}</span><button ${histPg>=totalPages?'disabled':''} onclick="histPg++;render()">Next →</button></div>`:'<p class="mu">No saved costings match this filter. Create and save a Shutter or Frame costing, giving it a Costing Name.</p>'}`
 }
 
 function toggleAllCostings(on){document.querySelectorAll('.mcsel').forEach(x=>x.checked=on)}
@@ -542,9 +562,9 @@ const mopts=sel=>`<option value=""${sel===''?' selected':''}>None</option>`+Obje
 function sizeCell(ref,i,l){if(!['area','rft','rm'].includes(l.method))return'<td class="mu">not used</td>';
  return`<td><select onchange="setL('${ref}',${i},'size',this.value)"><option value="">None</option><option value="prod">Product size</option><option value="own"${l.size=='own'?' selected':''}>Own size</option></select>${l.size=='own'?`<div class="row" style="margin:4px 0"><input type="number" style="width:76px;min-width:0" placeholder="W mm" value="${l.w??''}" onchange="setL('${ref}',${i},'w',this.value)"><input type="number" style="width:76px;min-width:0" placeholder="H mm" value="${l.h??''}" onchange="setL('${ref}',${i},'h',this.value)"></div>`:''}</td>`}
 function tplEditor(id){const t=db.templates.find(x=>x.id==id);if(!t)return'';const ref='T:'+id;
- return`<div class="pn"><h3 style="margin-top:0">Edit BOM: ${esc(t.name)}</h3><div class="tw"><table><tr><th>Component</th><th>Size from</th><th>Method</th><th>Qty / factor</th><th></th></tr>
- ${t.bom.map((l,i)=>{const m=mat(l.mid)||{name:'(deleted item)',cat:'',unit:''};return`<tr><td>${esc(m.name)}<div class="mu">${esc(m.cat)} · ${esc(m.unit||'')}</div></td>${sizeCell(ref,i,l)}
- <td><select onchange="setL('${ref}',${i},'method',this.value)">${mopts(l.method)}</select></td><td><input type="number" step="any" value="${l.qty}" onchange="setL('${ref}',${i},'qty',this.value)"></td>
+ return`<div class="pn"><h3 style="margin-top:0">Edit BOM: ${esc(t.name)}</h3><div class="tw"><table><tr><th>Component</th><th>Size from</th><th>Method</th><th>Qty / factor</th><th>Price override (blank = material master)</th><th></th></tr>
+ ${t.bom.map((l,i)=>{const m=mat(l.mid)||{name:'(deleted item)',cat:'',unit:'',price:0};return`<tr><td>${esc(m.name)}<div class="mu">${esc(m.cat)} · ${esc(m.unit||'')}</div></td>${sizeCell(ref,i,l)}
+ <td><select onchange="setL('${ref}',${i},'method',this.value)">${mopts(l.method)}</select></td><td><input type="number" step="any" value="${l.qty}" onchange="setL('${ref}',${i},'qty',this.value)"></td><td><input type="number" min="0" step="any" value="${l.price??''}" placeholder="${esc(m.price||0)}" title="Leave blank to use the current material master price" onchange="setL('${ref}',${i},'price',this.value)"></td>
  <td><button class="x" onclick="delL('${ref}',${i})">✕</button></td></tr>`}).join('')}</table></div>
  <div class="row"><select onchange="addL('${ref}',this.value)" style="max-width:240px"><option value="">+ Add component…</option>${opts(db.materials.filter(m=>m.active),'')}</select><button onclick="useT('${id}')">Use in costing</button><button onclick="mEdit=null;render()">Close</button></div>
  <p class="mu">Changes save to the master template immediately.</p></div>`}
@@ -552,8 +572,8 @@ function ask(msg,fn){const o=document.createElement('div');o.className='ov';o.in
 function resetAll(){ask('Reset all data to the starting templates? Users and login history are kept.',()=>{db=seed();S={shutter:null,frame:null};D=null;save();render()})}
 async function saveFile(name,data){if(DL && !(data instanceof Blob)){try{const r=await DL.save({filename:name,data});toast(r.status=='saved'?name+' sent to your browser downloads. Check your Downloads folder.':'File delivered',5000)}catch(e){toast(e&&e.code=='declined'?'Download cancelled':'Download failed ('+((e&&e.code)||'error')+')',5000)}return}
  const a=document.createElement('a');a.href=URL.createObjectURL(data instanceof Blob?data:new Blob([data]));a.download=name;document.body.appendChild(a);a.click();a.remove()}
-function exportCSV(){const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"',rows=[['ID','Date','Customer','Template','Qty','Sq Ft / Unit','Total Sq Ft','Input','Material','Hardware','Labour','Other','Per unit','Total']];
- db.history.filter(x=>x.type!=='door').forEach(x=>rows.push([x.id,x.date,x.customer,x.tname,x.qty,x.sqFt||0,x.totalSqFt||0,x.method,x.mat,x.hw,x.lab,x.oth,x.per,x.total]));saveFile('costing-history.csv',rows.map(r=>r.map(q).join(',')).join('\n'))}
+function exportCSV(){const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"',rows=[['ID','Type','Date','Customer','Costing Name','Template','Qty','Sq Ft / Unit','Total Sq Ft','Input','Material','Hardware','Labour','Other','Per unit','Total']];
+ db.history.filter(x=>x.type!=='door').forEach(x=>rows.push([x.id,x.type,x.date,x.customer,x.costingName||x.tname,x.tname,x.qty,x.sqFt||0,x.totalSqFt||0,x.method,x.mat,x.hw,x.lab,x.oth,x.per,x.total]));saveFile('costing-history.csv',rows.map(r=>r.map(q).join(',')).join('\n'))}
 function exportMaster(){saveFile('master-data.json',JSON.stringify({materials:db.materials,templates:db.templates},null,1))}
 function pdfRec(id,v){const x=db.history.find(h=>h.id==id);(v?pdfView:pdf)({type:x.type,tid:x.tid,customer:x.customer,terms:x.terms,w:x.w,h:x.h,t:x.t,qty:x.qty,sell:x.sell,lines:x.lines},x.id)}
 const rgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)||0);
