@@ -2,6 +2,12 @@
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
+function respond($status, $data) {
+    http_response_code($status);
+    echo json_encode($data, JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 try {
     $url = getenv('DATABASE_URL');
 
@@ -13,29 +19,36 @@ try {
         throw new RuntimeException('PDO PostgreSQL driver unavailable');
     }
 
-    // Parse the full Neon URL, including query parameters.
     $parts = parse_url($url);
 
-    if (!$parts || empty($parts['host']) || empty($parts['path'])) {
-        throw new RuntimeException('Invalid database URL');
+    if (
+        !$parts ||
+        empty($parts['host']) ||
+        empty($parts['path']) ||
+        empty($parts['user']) ||
+        !isset($parts['pass'])
+    ) {
+        throw new RuntimeException('Invalid DATABASE_URL format');
     }
 
     $host = $parts['host'];
     $port = $parts['port'] ?? 5432;
     $dbname = rawurldecode(ltrim($parts['path'], '/'));
-    $user = rawurldecode($parts['user'] ?? '');
-    $password = rawurldecode($parts['pass'] ?? '');
+    $user = rawurldecode($parts['user']);
+    $originalPassword = rawurldecode($parts['pass']);
 
-    $query = [];
-    parse_str($parts['query'] ?? '', $query);
+    // Extract Neon endpoint ID from the hostname.
+    $endpointId = explode('.', $host)[0];
+    $endpointId = preg_replace('/-pooler$/', '', $endpointId);
+
+    if (!preg_match('/^ep-[a-z0-9-]+$/', $endpointId)) {
+        throw new RuntimeException('Could not identify Neon endpoint');
+    }
+
+    // Workaround for older libpq clients without SNI support.
+    $password = 'endpoint=' . $endpointId . ';' . $originalPassword;
 
     $dsn = "pgsql:host={$host};port={$port};dbname={$dbname};sslmode=require";
-
-    // Preserve Neon endpoint routing parameters if present.
-    if (!empty($query['options'])) {
-        $options = rawurldecode($query['options']);
-        $dsn .= ";options=" . $options;
-    }
 
     $db = new PDO($dsn, $user, $password, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -44,17 +57,17 @@ try {
 
     $db->query('SELECT 1');
 
-    http_response_code(200);
-    echo json_encode([
+    respond(200, [
         'ok' => true,
         'database' => 'connected'
     ]);
 
 } catch (Throwable $e) {
-    error_log('Neon DB test: ' . $e->getMessage());
-    http_response_code(500);
-    echo json_encode([
+    error_log('Neon database test failed: ' . $e->getMessage());
+
+    respond(500, [
         'ok' => false,
-        'error' => $e->getMessage()
+        'error' => 'Database connection failed',
+        'detail' => $e->getMessage()
     ]);
 }
